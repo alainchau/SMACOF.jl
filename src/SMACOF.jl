@@ -8,18 +8,20 @@ import Statistics.mean
 include("procrustes.jl")
 include("helpers.jl")
 
-export Smacof, fit, stress, distortion, classical_mds
+export Smacof, fit, stress, distortion, classical_mds, gethist
 
 struct Smacof
-    Δ           # Disparities
+    Δ           # Dissimilarities
     X           # Current best estimate
     D           # Distance matrix for best estimate
+    Xhist       # All past configurations
     W           # Weight matrix    
     V
     Vinv
     b
     lb
     ε           # Error tolerance
+    it
     itmax       
     verbose
     function Smacof(Δ; W=nothing, X=nothing, ε=1e-12, itmax=10, verbose=false)
@@ -37,7 +39,8 @@ struct Smacof
         if isnothing(X)
             X = classical_mds(Δ)
         end
-
+        Xhist = zeros(itmax, size(X)...)
+        Xhist[1,:,:] = X
         Δ = Δ / sqrt(sum(W .* Δ.^2))        # Normalize
         V = - Matrix{Float64}(W)
         V[diagind(V)] = - sum(V, dims=1)    # Row sums
@@ -46,7 +49,7 @@ struct Smacof
         D = pairwise(Euclidean(), X, dims=2)
         lb = sum(W .* D .* Δ) / sum(W .* D.^2)
         b = zeros(size(W))
-        return new(Δ, X * lb, D * lb, W, V, Vinv, b, lb, ε, itmax, verbose)
+        return new(Δ, X * lb, D * lb, Xhist, W, V, Vinv, b, lb, ε, [1], itmax, verbose)
     end
 end
 
@@ -66,13 +69,18 @@ function update_bmat!(sm::Smacof)
 end
 
 function fit(sm::Smacof; anchors=nothing)
-    for i in 1:sm.itmax
+    for i in 2:sm.itmax
         # sm.b = bmat(sm.Δ, sm.W, sm.D, sm.b)
         update_bmat!(sm)
-        e = sm.X * sm.b * sm.Vinv - sm.X
+        # e = sm.X * sm.b * sm.Vinv - sm.X
         sm.X[:] = sm.X * sm.b * sm.Vinv
+        sm.Xhist[i,:,:] = sm.X
+        e = sm.Xhist[i,:,:] - sm.Xhist[i - 1,:,:]
         sm.D[:] = pairwise(Euclidean(), sm.X, dims=2)
-        (sqrt(sum(sm.V .* (e' * e))) < sm.ε) && break
+        if (sqrt(sum(sm.V .* (e' * e))) < sm.ε) 
+            sm.it[1] = i
+            break
+        end
     end
     if !isnothing(anchors)
         return SMACOF.align(sm.X / sm.lb, anchors) 
@@ -80,5 +88,7 @@ function fit(sm::Smacof; anchors=nothing)
         return sm.X / sm.lb
     end
 end
+
+gethist(sm::Smacof) = sm.Xhist[1:sm.it[1], :, :]
 
 end

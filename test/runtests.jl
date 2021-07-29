@@ -51,7 +51,7 @@ end
 #     Y = smacof(pairwise(Euclidean(), Y, dims=2))    
 #     Y = SMACOF.align(Y, X)
 #     @test norm(X - Y) ≈ 0 atol = 1e-8
-# end
+    # end
     
 @testset "smacof struct" begin
     X = [0.0    0   1; 
@@ -60,6 +60,15 @@ end
     sm = Smacof(X)
     Y = fit(sm, anchors=X)
     @test norm(X - Y) ≈ 0 atol = 1e-8
+end
+
+@testset "gethist check size" begin
+    X = [0.0    0   1; 
+    0.0    1   0]
+    Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
+    sm = Smacof(X)
+    Y = fit(sm, anchors=X)
+    @test size(gethist(sm)) == (3, 2, 3)
 end
 
 # @testset "SMACOF.jl" begin
