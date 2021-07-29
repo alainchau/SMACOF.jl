@@ -24,7 +24,7 @@ struct Smacof
     it
     itmax       
     verbose
-    function Smacof(Δ; W=nothing, X=nothing, ε=1e-12, itmax=10, verbose=false)
+    function Smacof(Δ; W=nothing, Xinit=nothing, ε=1e-12, itmax=10, verbose=false)
         if !issymmetric(Δ)
             if verbose
                 print("First argument is not a dissimilarity matrix. ")
@@ -36,11 +36,11 @@ struct Smacof
             W = ones(size(Δ))
             W[diagind(W)] .= 0
         end
-        if isnothing(X)
-            X = classical_mds(Δ)
+        if isnothing(Xinit)
+            Xinit = classical_mds(Δ)
         end
-        Xhist = zeros(itmax, size(X)...)
-        Xhist[1,:,:] = X
+        Xhist = zeros(itmax, size(Xinit)...)
+        Xhist[1,:,:] = Xinit
         Δ = Δ / sqrt(sum(W .* Δ.^2))        # Normalize
         V = - Matrix{Float64}(W)
         V[diagind(V)] = - sum(V, dims=1)    # Row sums
@@ -49,7 +49,7 @@ struct Smacof
         D = pairwise(Euclidean(), X, dims=2)
         lb = sum(W .* D .* Δ) / sum(W .* D.^2)
         b = zeros(size(W))
-        return new(Δ, X * lb, D * lb, Xhist, W, V, Vinv, b, lb, ε, [1], itmax, verbose)
+        return new(Δ, Xinit * lb, D * lb, Xhist, W, V, Vinv, b, lb, ε, [1], itmax, verbose)
     end
 end
 
