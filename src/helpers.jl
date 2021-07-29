@@ -15,27 +15,24 @@ function distortion(X, Y)
     return  maximum(abs.(DX - DY))
 end
 
-function classical_mds(Δ, p=2)
-    transform(fit(MDS, Δ, maxoutdim=p, distances=true))
-end
+"""
+    classical_mds(Δ, p=2)
 
-normalize_diss(D, W) = D / sqrt(sum(W .* D.^2))
+Use classical scaling with dissimilarity matrix Δ.
 
-function normalize_diss_n(D, W)
-    n = size(D, 1)
-    N = n * (n + 1) / 2
-    return D / sqrt(sum(W .* D.^2)) * sqrt(N)
-end
+This method is a simple wrapper for the MultivariateStats library.
+"""
+classical_mds(Δ, p=2) = transform(fit(MDS, Δ, maxoutdim=p, distances=true))
+
 
 
 """
     dists(X)
 
-Get Euclidean distance matrix for matrix X with columns representing points.
+Get Euclidean distance matrix for X (with columns representing points).
 """
-function dists(X)
-    return pairwise(Euclidean(), X, dims=2)
-end
+dists(X) = pairwise(Euclidean(), X, dims=2)
+
 
 random2Drotation() = qr(randn(2, 2)).Q
 random3Drotation() = qr(randn(3, 3)).Q

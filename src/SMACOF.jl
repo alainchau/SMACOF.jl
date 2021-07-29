@@ -37,9 +37,10 @@ struct Smacof
         if isnothing(X)
             X = classical_mds(Δ)
         end
-        Δ = normalize_diss(Δ, W)
+
+        Δ = Δ / sqrt(sum(W .* Δ.^2))        # Normalize
         V = - Matrix{Float64}(W)
-        V[diagind(V)] = - sum(V, dims=1) # row sums
+        V[diagind(V)] = - sum(V, dims=1)    # Row sums
         Vinv = pinv(V)
         
         D = pairwise(Euclidean(), X, dims=2)
