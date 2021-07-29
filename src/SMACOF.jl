@@ -8,7 +8,7 @@ import Statistics.mean
 include("procrustes.jl")
 include("helpers.jl")
 
-export Smacof, fit, stress, distortion, classical_mds, gethist
+export Smacof, fit, stress, distortion, classical_mds, gethist, dists
 
 struct Smacof
     Δ           # Dissimilarities
@@ -74,7 +74,7 @@ function fit(sm::Smacof; anchors=nothing)
         update_bmat!(sm)
         # e = sm.X * sm.b * sm.Vinv - sm.X
         sm.X[:] = sm.X * sm.b * sm.Vinv
-        sm.Xhist[i,:,:] = sm.X
+        sm.Xhist[i,:,:] = sm.X / sm.lb
         e = sm.Xhist[i,:,:] - sm.Xhist[i - 1,:,:]
         sm.D[:] = pairwise(Euclidean(), sm.X, dims=2)
         if (sqrt(sum(sm.V .* (e' * e))) < sm.ε) 
