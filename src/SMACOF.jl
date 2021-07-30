@@ -47,7 +47,7 @@ struct Smacof
         Xhist[1,:,:] = Xinit
         σ = zeros(itmax)
         σ[1] = stress(Δ, D, W)
-        verbose && println("step 1\t stress = ", σ[1])
+        verbose && println("1\t stress = ", σ[1])
         return new(Δ, Xinit, D, Xhist, W, Vinv, b, σ, ε, [itmax], itmax, verbose)
     end
 end
