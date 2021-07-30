@@ -75,7 +75,7 @@ function fit(sm::Smacof; anchors=nothing)
         sm.Xhist[i, :, :] = sm.X
         sm.σ[i] = stress(sm.Δ, sm.D, sm.W)
         sm.verbose && println("$i\t stress = ", sm.σ[i])
-        if (sm.σ[i - 1] - sm.σ[i]) / sm.σ[i - 1] < sm.ε
+        if abs(sm.σ[i - 1] - sm.σ[i]) / sm.σ[i - 1] < sm.ε
             sm.it[1] = i
             break
         end
