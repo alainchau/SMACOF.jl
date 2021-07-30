@@ -1,6 +1,5 @@
 using SMACOF
 using Plots
-using Random
 gr()
 ENV["GKSwstype"] = "100"
 
@@ -22,6 +21,8 @@ function main(n=500)
         p = scatter(X[1,:], X[2,:], alpha=0.7, markersize=10, label="true");
         Xi = SMACOF.align(sm.Xhist[i,:,:], X)
         scatter!(Xi[1,:], Xi[2,:], label="smacof");
+        xlims!((-0.2, 1.2))
+        ylims!((-0.2, 1.2))
         frame(animation, p)
     end
     run(`ffmpeg -y -r 15 -i $loadpath"%06d.png" -vcodec libx264 -crf 25 "anim.mp4"`)
