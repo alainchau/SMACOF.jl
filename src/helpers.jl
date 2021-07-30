@@ -36,3 +36,9 @@ dists(X) = pairwise(Euclidean(), X, dims=2)
 
 random2Drotation() = qr(randn(2, 2)).Q
 random3Drotation() = qr(randn(3, 3)).Q
+
+function clear_plots(shape="square_hole")
+    for f in readdir("example/gif_stems")
+        run(`rm plots/$(shape)/$(f)`)
+    end
+end

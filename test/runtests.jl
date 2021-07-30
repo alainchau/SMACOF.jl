@@ -66,9 +66,9 @@ end
     X = [0.0    0   1; 
     0.0    1   0]
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    sm = Smacof(X)
+    sm = Smacof(X, verbose=true)
     Y = fit(sm, anchors=X)
-    @test size(gethist(sm)) == (3, 2, 3)
+    @test size(gethist(sm)) == (2, 2, 3)
 end
 
 # @testset "SMACOF.jl" begin
