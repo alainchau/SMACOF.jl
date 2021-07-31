@@ -6,10 +6,8 @@ using Random
 using Statistics
 
 @testset "stress/distortion" begin
-    A = [0.0    0   1; 
-         0.0    1   0]
-    B = [0.0    0   1; 
-         0.1    1   0]
+    A = [0.0    0   1;  0.0    1   0]
+    B = [0.0    0   1;  0.1    1   0]
     n = size(A, 2)
     s = (0.9 - 1)^2 + (sqrt(1 + 0.1^2) - 1)^2
     @test stress(A, B, ones(n, n)) ≈ s
@@ -17,21 +15,20 @@ using Statistics
 end
 
 @testset "align" begin
-    A = [0.0    0   1; 
-         0.0    1   0]
+    A = [0.0    0   1;   0.0    1   0]
     
     # TRANSLATION   
     B = A .+ 0.1
     Ahat =  SMACOF.align(B, A)
     for i in eachindex(Ahat)
-        @test Ahat[i] ≈ A[i] atol = 1e-8
+    @test Ahat[i] ≈ A[i] atol = 1e-8
     end
     
     # ROTATION
     B = SMACOF.random2Drotation() * A
     Ahat =  SMACOF.align(B, A)
     for i in eachindex(Ahat)
-        @test Ahat[i] ≈ A[i] atol = 1e-8
+    @test Ahat[i] ≈ A[i] atol = 1e-8
     end
 end
 
@@ -43,32 +40,30 @@ end
 #     Y = SMACOF.align(Y, X)
 #     @test norm(X - Y) ≈ 0 atol = 1e-8
 # end
-
+    
 # @testset "smacof scaling" begin
-#     X = [0.0    0   1; 
+    #     X = [0.0    0   1; 
 #          0.0    1   0]
 #     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
 #     Y = smacof(pairwise(Euclidean(), Y, dims=2))    
 #     Y = SMACOF.align(Y, X)
-#     @test norm(X - Y) ≈ 0 atol = 1e-8
+    #     @test norm(X - Y) ≈ 0 atol = 1e-8
     # end
     
-@testset "smacof struct" begin
-    X = [0.0    0   1; 
-         0.0    1   0]
+    @testset "smacof struct" begin
+    X = [0.0    0   1;  0.0    1   0]
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    sm = Smacof(X)
+    sm = Smacof(X, verbose=true, itmax=100)
     Y = fit(sm, anchors=X)
     @test norm(X - Y) ≈ 0 atol = 1e-8
 end
 
 @testset "gethist check size" begin
-    X = [0.0    0   1; 
-    0.0    1   0]
+    X = [0.0    0   1; 0.0    1   0]
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
     sm = Smacof(X, verbose=true)
     Y = fit(sm, anchors=X)
-    @test size(gethist(sm)) == (2, 2, 3)
+    @test size(gethist(sm)) == (sm.it[1], 2, 3)
 end
 
 # @testset "SMACOF.jl" begin
