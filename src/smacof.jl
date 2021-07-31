@@ -77,3 +77,4 @@ function fit(sm::Smacof; anchors=nothing)
 end
 
 gethist(sm::Smacof) = sm.Xhist[1:sm.it[1], :, :]
+stress(sm::Smacof) = sm.σ[sm.it[1]]

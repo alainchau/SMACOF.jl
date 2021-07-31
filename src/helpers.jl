@@ -3,9 +3,13 @@
 
 Compute the raw stress.
 """
-function stress(X, Y, W)
-    DX = pairwise(Euclidean(), X, dims=2) |> tril
-    DY = pairwise(Euclidean(), Y, dims=2) |> tril
+function stress(DX, DY, W)
+    if size(DX, 1) != size(DX, 2)
+        DX = pairwise(Euclidean(), DX, dims=2) |> tril
+    end
+    if size(DY, 1) != size(DY, 2)
+        DY = pairwise(Euclidean(), DY, dims=2) |> tril
+    end
     return sum(tril(W) .* (DX - DY).^2)   
 end
 
