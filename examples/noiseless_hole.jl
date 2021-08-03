@@ -21,7 +21,7 @@ function add_noise_to_dist(D; noise=0.20)
     return D
 end
 
-function main(f, relpath, abspath, gifdir, filename, n=500)
+function main(f, relpath, abspath, gifdir, filename; n=500)
     X = rand(2, n)
     X = X[:, .!((1 / 4 .< X[1,:] .< 3 / 4) .& (1 / 4 .< X[2,:] .< 3 / 4))]
     # Y, Xhist = wda_smacof(dists(X), η=0.8, verbose=true, anchors=X, ε=1e-12, return_history=true)

@@ -75,4 +75,15 @@ using Statistics
     #     # @test norm(X - Y) ≈ 0 atol = 1e-8
     #     test_xy(X, Y)
     # end
+
+    X = rand(2, 10)
+    Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
+    @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
+    @test norm(X - Y) ≈ 0 atol = 1e-8
+
+    X = rand(2, 500)
+    Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
+    @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
+    @test norm(X - Y) ≈ 0 atol = 1e-8
+
 end

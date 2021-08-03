@@ -17,7 +17,7 @@ main(X -> wda_smacof(dists(X),
                     anchors=X, 
                     ε=1e-12, 
                     return_history=true)[2],
-            relpath, abspath, gifdir, filename)
+            relpath, abspath, gifdir, filename, n=5000)
 
 # function add_noise_to_dist(D; noise=0.20)
 #     for i in 1:n

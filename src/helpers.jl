@@ -10,7 +10,14 @@ function stress(DX, DY, W)
     if size(DY, 1) != size(DY, 2)
         DY = pairwise(Euclidean(), DY, dims=2) |> tril
     end
-    return sum(tril(W) .* (DX - DY).^2)   
+    
+    s = 0.0
+    for i in 1:size(W, 1)
+        for j in i:size(W, 2)
+            s += W[i, j] * (DX[i, j] - DY[i, j])^2
+        end
+    end
+    return s
 end
 
 function distortion(X, Y)

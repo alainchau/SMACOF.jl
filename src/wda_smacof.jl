@@ -1,31 +1,4 @@
 """
-    computeT0(Δ)
-
-Find largest T_0 such that δij - T sqrt(2p) > 0 for some i,j.
-"""
-computeT0(Δ, p) = maximum(Δ / sqrt(2p)) * 0.99
-
-"""
-    updateΔ!(Δ, T, p)
-
-Update Δk with respect to T.
-"""
-function updateΔ!(Δ, Δk, W, T, p) 
-    for i in eachindex(Δ)
-        if W[i] ≈ 0
-            Δk[i] = Δ[i]
-        end
-        Δk[i] = max(0, Δ[i] - T * sqrt(2p))
-    end
-end
-
-function computeΔ(Δ, W, T, p)
-    Δk = zeros(size(Δ))
-    updateΔ!(Δ, Δk, W, T, p)
-    return Δk
-end
-
-"""
     wda_smacof(Δ, η)
 
 Apply SMACOF with deterministic annealing with weights. The goal is to reduce the likelihood of converging to a non-optimal local minimum.
@@ -45,10 +18,7 @@ Reference
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
-function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
-    # Based on the paper, this param is ignored/unimportant
-    Tmin = 1e-8
-
+function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
     # Use uniform weights if left unspecified
     if isnothing(W)
         W = ones(size(Δ))
@@ -56,34 +26,63 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbos
     end
 
     # Compute largest T such that Δ has at least one nonzero element
-    Tk = computeT0(Δ, p)
-    Δk = computeΔ(Δ, W, Tk, p)
+    # Tk = computeT0(Δ, p)
+    # Δk = computeΔ(Δ, W, Tk, p)
+
+    Tk, Δk = initialize_T_and_Δ(Δ, W, p)
 
     # Pick random initial mapping
     X = zeros(itmax, p, size(Δ, 1))
     X[1, :, :] = randn(size(X[1,:,:]))
-    σ0 = Inf
-    σ1 = stress(X[1, :,:], Δk, W)
+    D = dists(X[1,:,:])
+    σ0, σ1 = Inf, stress(D, Δk, W)
 
     Vdot = wda_getVdot(W)
-    B = wda_getB(dists(X[1,:,:]), Δk, W)
+    B = wda_getB(D, Δk, W)
     # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
     i = 1 
-    while (Tk ≥ Tmin) && (i < itmax)
+    while (Tk ≥ Tmin) && (i < itmax) && abs(σ1 - σ0) > ε
         X[i + 1, :, :] = conjugate_gradient(X[i,:,:], Δk, B, Vdot, W, ε)
-        σ0, σ1 = σ1, stress(X[i + 1,:,:], Δk, W)       
+        D = dists(X[i + 1,:,:])
+        σ0, σ1 = σ1, stress(D, Δk, W)       
         Tk = η * Tk
         updateΔ!(Δ, Δk, W, Tk, p) 
-        B = wda_getB(dists(X[i + 1, :, :]), Δk, W, B)
-        if abs(σ1 - σ0) < ε
-            break
-        end
+        B = wda_getB(D, Δk, W, B)
         i += 1
     end
-    Y = fit(Smacof(Δ, Xinit=X[i - 1, :, :]), anchors=anchors)
+    @time Y = fit(Smacof(Δ, Xinit=X[i - 1, :, :]), anchors=anchors)
     return_history && return Y, X[1:i, :, :]
     return Y
 end
+
+# struct ConjugateGradient
+#     X
+#     r
+#     d
+#     α
+#     β
+#     B
+#     Vdot
+#     ε
+#     function ConjugateGradient(Xk, B, Vdot, ε=1e-8)
+#         X = randn(size(Xk))
+#         r = Xk * B - X * Vdot
+#         d = r
+#         self(X, r, d, 0.0, 0.0, B, Vot, ε)
+#     end
+# end
+
+# function solve(C::ConjugateGradient)
+#     while norm(C.ri) > C.ε
+#         C.α = dot(C.ri, C.ri) / dot(di, di * Vdot)
+#         C.X += C.α * C.d
+#         r2 = C.r = C.α * C.d * C.Vdot
+#         C.β = dot(r2, r2) / dot(C.r, C.r)
+#         C.d = r2 + C.β * C.d
+#         C.r = r2
+#     end
+#     return C.x
+# end
 
 function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
     # Random initial points for CG
@@ -92,7 +91,7 @@ function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
     # Residual error
     ri = Xk * B - Xi * Vdot
     di = ri
-    
+
     # Converges when residual is small enough
     while norm(ri) > ε
         αi = dot(ri, ri) / dot(di, di * Vdot)   # How much we should move by
@@ -105,12 +104,40 @@ function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
     return Xi
 end
 
-function wda_getV(W)
-    V = - Matrix{Float64}(W)
-    for i in 1:size(V, 1)
-        V[i, i] = -sum(W[1:end .!= i, i])
+"""
+    computeT0(Δ)
+
+Find largest T_0 such that δij - T sqrt(2p) > 0 for some i,j.
+"""
+computeT0(Δ, p) = maximum(Δ / sqrt(2p)) * 0.99
+
+function computeΔ(Δ, W, T, p)
+    Δk = zeros(size(Δ))
+    updateΔ!(Δ, Δk, W, T, p)
+    return Δk
+end
+
+
+
+"""
+    updateΔ!(Δ, T, p)
+
+Update Δk with respect to T.
+"""
+function updateΔ!(Δ, Δk, W, T, p) 
+    for i in eachindex(Δ)
+        if W[i] ≈ 0
+            Δk[i] = Δ[i]
+        end
+        Δk[i] = max(0, Δ[i] - T * sqrt(2p))
     end
-    return V
+end
+
+function initialize_T_and_Δ(Δ, W, p)
+    T = maximum(Δ / sqrt(2p)) * 0.99
+    Δk = zeros(size(Δ))
+    updateΔ!(Δ, Δk, W, T, p)
+    return T, Δk
 end
 
 function wda_getVdot(W)
@@ -131,16 +158,4 @@ function wda_getB(D, Δk, W, B=zeros(size(W)))
     end
     B[diagind(B)] = - sum(B, dims=2)
     return B
-end
-
-function ruan_dot(Xt, Yt)
-    X = Xt'
-    Y = Yt'
-    s = 0
-    for j in 1:size(Y, 2)
-        for i in 1:size(Y, 1)
-            s += X[j, i] * Y[i, j]
-        end
-    end
-    return s
 end

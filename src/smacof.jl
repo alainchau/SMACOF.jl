@@ -43,25 +43,20 @@ end
 
 function update_bmat!(sm::Smacof)
     for i in eachindex(sm.b)
-        sm.b[i] = sm.D[i] < sm.ε
-        sm.b[i] = sm.W[i] * sm.Δ[i] * (1 - sm.b[i]) / (sm.D[i] + sm.b[i])
+        t = (sm.D[i] < sm.ε)
+        sm.b[i] = - sm.W[i] * sm.Δ[i]
+        sm.b[i] *= (1 - t) / (sm.D[i] + t)
     end
     for i in 1:size(sm.b, 1)
-        sm.b[i,i] = 0
-        for j in 1:size(sm.b, 1)    
-            i == j && continue
-            sm.b[i,i] = sm.b[i,i] + sm.b[i,j]
-            sm.b[i,j] = - sm.b[i,j]
-        end
+        sm.b[i, i] = -sum(sm.b[i, (1:end) .!= i])
     end
 end
 
 function fit(sm::Smacof; anchors=nothing)
     for i in 2:sm.itmax
         update_bmat!(sm)
-        sm.X[:] = sm.X * sm.b * sm.Vinv
-        sm.D[:] = dists(sm.X)
-        sm.Xhist[i, :, :] = sm.X
+        sm.Xhist[i, :, :] = sm.Xhist[i - 1, :, :] * sm.b * sm.Vinv
+        sm.D[:] = dists(sm.Xhist[i, :, :])
         sm.σ[i] = stress(sm.Δ, sm.D, sm.W)
         sm.verbose && println("$i\t stress = ", sm.σ[i])
         if abs(sm.σ[i - 1] - sm.σ[i]) / sm.σ[i - 1] < sm.ε
@@ -70,11 +65,12 @@ function fit(sm::Smacof; anchors=nothing)
         end
     end
     if !isnothing(anchors)
-        return SMACOF.align(sm.X, anchors) 
+        return SMACOF.align(getbest(sm), anchors) 
     else
-        return sm.X
+        return getbest(sm)
     end
 end
 
+getbest(sm::Smacof) = sm.Xhist[sm.it[1], :, :]
 gethist(sm::Smacof) = sm.Xhist[1:sm.it[1], :, :]
 stress(sm::Smacof) = sm.σ[sm.it[1]]
