@@ -2,4 +2,5 @@
 *.jl.cov
 *.jl.mem
 /docs/build/
-/example/gif_stems/
+/examples/smacof/gif_stems/
+/examples/wda_smacof/gif_stems/

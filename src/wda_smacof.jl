@@ -45,7 +45,7 @@ Reference
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
-function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbose=false)
+function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
     # Based on the paper, this param is ignored/unimportant
     Tmin = 1e-8
 
@@ -60,26 +60,28 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbos
     Δk = computeΔ(Δ, W, Tk, p)
 
     # Pick random initial mapping
-    # X0 = zeros(p, size(Δ, 1))
-    Xk = randn(p, size(Δ, 1))
+    X = zeros(itmax, p, size(Δ, 1))
+    X[1, :, :] = randn(size(X[1,:,:]))
     σ0 = Inf
-    σ1 = stress(Xk, Δk, W)
+    σ1 = stress(X[1, :,:], Δk, W)
 
     Vdot = wda_getVdot(W)
-    B = wda_getB(dists(Xk), Δk, W)
+    B = wda_getB(dists(X[1,:,:]), Δk, W)
     # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
-    while Tk ≥ Tmin
-        Xk = conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
-        σ0, σ1 = σ1, stress(Xk, Δk, W)       
+    i = 1 
+    while (Tk ≥ Tmin) && (i < itmax)
+        X[i + 1, :, :] = conjugate_gradient(X[i,:,:], Δk, B, Vdot, W, ε)
+        σ0, σ1 = σ1, stress(X[i + 1,:,:], Δk, W)       
+        Tk = η * Tk
+        updateΔ!(Δ, Δk, W, Tk, p) 
+        B = wda_getB(dists(X[i + 1, :, :]), Δk, W, B)
         if abs(σ1 - σ0) < ε
             break
         end
-        Tk = η * Tk
-        updateΔ!(Δ, Δk, W, Tk, p) 
-        B = wda_getB(dists(Xk), Δk, W, B)
+        i += 1
     end
-    verbose && println("Final Xinit = $Xk")
-    Y = fit(Smacof(Δ, Xinit=Xk), anchors=anchors)
+    Y = fit(Smacof(Δ, Xinit=X[i - 1, :, :]), anchors=anchors)
+    return_history && return Y, X[1:i, :, :]
     return Y
 end
 
