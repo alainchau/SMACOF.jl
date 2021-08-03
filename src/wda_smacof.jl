@@ -19,6 +19,12 @@ function updateΔ!(Δ, Δk, W, T, p)
     end
 end
 
+function computeΔ(Δ, W, T, p)
+    Δk = zeros(size(Δ))
+    updateΔ!(Δ, Δk, W, T, p)
+    return Δk
+end
+
 """
     wda_smacof(Δ, η)
 
@@ -39,53 +45,62 @@ Reference
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
-function wda_smacof(Δ, W=ones(size(Δ)); η=0.9, p=2, ε=1e-5, anchors=nothing, verbose=false)
-    Tmin = 1e-8 # Based on the paper, this param is ignored/unimportant
-    n = size(Δ, 1)
-    Tk = computeT0(Δ, p)
-    Δk = max.(0, Δ .- Tk * sqrt(2p))
-    Xk = rand(p, n)
-    σ0 = 0
-    σ1 = Inf
-    V = wda_getV(W)
-    Vdot = wda_getVdot(W)
-    B = wda_getB(Δk, Xk, W)
-    while Tk ≥ Tmin
-        # σ1 = stress(Δ, Δk, W)
-        # Conjugate Gradient method
-        # init Xi?
-        Xi = zeros(size(Xk))
-        ri = Xi * B' - Xk * Vdot'
-        di = ri
-        σi0 = 0
-        σi1 = stress(Xi, Δk, W)
-        println("----")
-        while abs(σi1 - σi0) > ε
-            αi = sum(ri * ri') / sum(di * Vdot' * di')
-            Xi += αi * di
-            ri2 = ri - αi * di * Vdot 
-            βi = sum(ri2 *  ri2') / sum(ri * ri')
-            di = ri2 + βi * di
-            ri = ri2 
+function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, anchors=nothing, verbose=false)
+    # Based on the paper, this param is ignored/unimportant
+    Tmin = 1e-8
 
-            σi0 = σi1
-            σi1 = stress(Xi, Δk, W)
-            println(Xi)
-        end
-        # smk =stress(smk)
-        println(Xi)
-        Xk = Xi
-        σ0 = σ1
-        σ1 = σi1
-        if abs(σ0 - σ1) < ε
+    # Use uniform weights if left unspecified
+    if isnothing(W)
+        W = ones(size(Δ))
+        W[diagind(W)] .= 0
+    end
+
+    # Compute largest T such that Δ has at least one nonzero element
+    Tk = computeT0(Δ, p)
+    Δk = computeΔ(Δ, W, Tk, p)
+
+    # Pick random initial mapping
+    # X0 = zeros(p, size(Δ, 1))
+    Xk = randn(p, size(Δ, 1))
+    σ0 = Inf
+    σ1 = stress(Xk, Δk, W)
+
+    Vdot = wda_getVdot(W)
+    B = wda_getB(dists(Xk), Δk, W)
+    # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
+    while Tk ≥ Tmin
+        Xk = conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
+        σ0, σ1 = σ1, stress(Xk, Δk, W)       
+        if abs(σ1 - σ0) < ε
             break
         end
-        # verbose && println("stress = ", σ1)
         Tk = η * Tk
         updateΔ!(Δ, Δk, W, Tk, p) 
+        B = wda_getB(dists(Xk), Δk, W, B)
     end
     verbose && println("Final Xinit = $Xk")
-    return fit(Smacof(Δ, Xinit=Xk), anchors=anchors)
+    Y = fit(Smacof(Δ, Xinit=Xk), anchors=anchors)
+    return Y
+end
+
+function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
+    # Random initial points for CG
+    Xi = randn(size(Xk))
+
+    # Residual error
+    ri = Xk * B - Xi * Vdot
+    di = ri
+    
+    # Converges when residual is small enough
+    while norm(ri) > ε
+        αi = dot(ri, ri) / dot(di, di * Vdot)   # How much we should move by
+        Xi += αi * di                           # Next point
+        ri2 = ri - αi * di * Vdot               # Remaining error
+        βi = dot(ri2, ri2) / dot(ri, ri)        # New direction
+        di = ri2 + βi * di                      # Direction to move
+        ri = ri2 
+    end
+    return Xi
 end
 
 function wda_getV(W)
@@ -97,15 +112,15 @@ function wda_getV(W)
 end
 
 function wda_getVdot(W)
-    V = - Matrix{Float64}(W)
-    for i in 1:size(V, 1)
-        V[i, i] = 1 + sum(W[1:end .!= i, i])
+    Vdot = - Matrix{Float64}(W)
+    for i in 1:size(W, 1)
+        Vdot[i, i] = 1 + sum(W[1:end .!= i, i])
     end
-    return V
+    return Vdot
 end
 
-function wda_getB(Δk, Xk, W, B=zeros(size(W)))
-    D = dists(Xk)
+function wda_getB(D, Δk, W, B=zeros(size(W)))
+    B .= 0
     for i in 1:size(Δk, 1)
         for j in (i + 1):size(Δk, 1)
             B[i, j] = - W[i, j] * Δk[i, j] / D[i, j]
@@ -116,9 +131,14 @@ function wda_getB(Δk, Xk, W, B=zeros(size(W)))
     return B
 end
 
-"""
-    ruan_dot(X, Y)
-
-Implementation of dot product from Ruan-Fox paper.
-"""
-ruan_dot(X, Y) = Y' * X'
+function ruan_dot(Xt, Yt)
+    X = Xt'
+    Y = Yt'
+    s = 0
+    for j in 1:size(Y, 2)
+        for i in 1:size(Y, 1)
+            s += X[j, i] * Y[i, j]
+        end
+    end
+    return s
+end
