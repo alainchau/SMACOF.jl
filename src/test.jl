@@ -15,5 +15,6 @@ function main()
     X = randn(2, 150)
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
     @time Y = fit(Smacof(X, verbose=false, itmax=100), anchors=X)
-    println()
 end
+
+main()

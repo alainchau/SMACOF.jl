@@ -20,17 +20,15 @@ function stress(DX, DY, W)
     return s
 end
 
-function stress!(s, DX, DY, W)
+function stress!(s, k, DX, DY, W)
     if size(DX, 1) != size(DX, 2)
         DX = pairwise(Euclidean(), DX, dims=2) |> tril
     end
     if size(DY, 1) != size(DY, 2)
         DY = pairwise(Euclidean(), DY, dims=2) |> tril
     end
-    for j in 1:size(W, 1)
-        for i in (j + 1):size(W, 2)
-            s += W[i, j] * (DX[i, j] - DY[i, j])^2
-        end
+    for j in 1:size(W, 1), i in (j + 1):size(W, 2)
+        s[k] += W[i, j] * (DX[i, j] - DY[i, j])^2
     end
 end
 
