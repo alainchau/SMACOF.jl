@@ -33,9 +33,9 @@ Random.seed!(1993)
 # end
     
 @testset "smacof" begin
-    X = randn(2, 200)
+    X = randn(2, 500)
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    sm = Smacof(Y, verbose=false, Xinit=rand(size(X)...), itmax=500)
+    sm = Smacof(Y, verbose=false, itmax=300)
     @time Y = fit(sm, anchors=X)
     @test norm(X - Y) ≈ 0 atol = 1e-8
 end
