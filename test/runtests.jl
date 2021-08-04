@@ -4,6 +4,7 @@ using Distances
 using LinearAlgebra
 using Random
 using Statistics
+Random.seed!(1993)
 
 # @testset "stress/distortion" begin
 #     A = [0.0    0   1;  0.0    1   0]
@@ -80,10 +81,9 @@ using Statistics
     # Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
     # @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
     # @test norm(X - Y) ≈ 0 atol = 1e-8
-
-    X = rand(2, 500)
+    X = rand(2, 200)
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
+    @time Y = wda_smacof(dists(Y), η=0.95, verbose=false, anchors=X, ε=1e-12)
     @test norm(X - Y) ≈ 0 atol = 1e-8
 
 end

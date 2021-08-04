@@ -17,10 +17,9 @@ Reference
     2013 IEEE 9th International Conference on e-Science, 2013, pp. 61-69, doi: 10.1109/eScience.2013.30.
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
-
-    25.136730 seconds (322.75 M allocations: 6.589 GiB, 1.63% gc time, 1.58% compilation time)
 """
 function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
+    println("ok")
     # Use uniform weights if left unspecified
     if isnothing(W)
         W = ones(size(Δ))
@@ -35,59 +34,53 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=noth
     D = dists(X[:,:,1])
     σ0, σ1 = Inf, stress(D, Δk, W)
 
-    Vdot = wda_getVdot(W)
-    B = wda_getB(D, Δk, W)
     # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
-    i = 1 
-    while (Tk ≥ Tmin) && (i < itmax) && abs(σ1 - σ0) > ε
-        conjugate_gradient!(X, i, Δk, B, Vdot, W, ε)
-        # X[i + 1, :, :] = conjugate_gradient(X[i,:,:], Δk, B, Vdot, W, ε)
-        D = dists(X[:,:,i + 1])
+    CG = ConjugateGradient(wda_getB(D, Δk, W), wda_getVdot(W), ε, size(X, 1), size(X, 2))
+    while (Tk ≥ Tmin) && (CG.i < itmax) && abs(σ1 - σ0) > ε
+        iterate!(X, CG)
+        D = dists(X[:,:,CG.i])
         σ0, σ1 = σ1, stress(D, Δk, W)       
         Tk = η * Tk
         updateΔ!(Δ, Δk, W, Tk, p) 
-        B = wda_getB(D, Δk, W, B)
-        i += 1
+        wda_getB(D, Δk, W, CG.B)
+        verbose && println(σ1)
     end
-    Y = fit(Smacof(Δ, Xinit=X[:, :, i], ε=ε), anchors=anchors)
+    Y = fit(Smacof(Δ, Xinit=X[:, :, CG.i], ε=ε), anchors=anchors)
     return_history && return Y, X[:, :, 1:i]
     return Y
 end
 
-function conjugate_gradient!(X, i, Δk, B,  Vdot, W, ε)
-    # Residual error
-    ri = X[:, :, i] * B - X[:, :, i + 1] * Vdot
-    di = ri
-
-    # Converges when residual is small enough
-    while norm(ri) > ε
-        αi = dot(ri, ri) / dot(di, di * Vdot)   # How much we should move by
-        X[:, :, i + 1] += αi * di                           # Next point
-        ri2 = ri - αi * di * Vdot               # Remaining error
-        βi = dot(ri2, ri2) / dot(ri, ri)        # New direction
-        di = ri2 + βi * di                      # Direction to move
-        ri = ri2 
+mutable struct ConjugateGradient
+    r
+    r2
+    d
+    i
+    α
+    β
+    B
+    Vdot
+    ε
+    p::Int
+    n::Int
+    np::Int
+    function ConjugateGradient(B, Vdot, ε, p, n)
+        return new(zeros(p, n), zeros(p, n), zeros(p, n), 1, 0.0, 0.0, B, Vdot, ε, p, n, n * p)
     end
 end
 
-function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
-    # Random initial points for CG
-    Xi = randn(size(Xk))
-
-    # Residual error
-    ri = Xk * B - Xi * Vdot
-    di = ri
-
-    # Converges when residual is small enough
-    while norm(ri) > ε
-        αi = dot(ri, ri) / dot(di, di * Vdot)   # How much we should move by
-        Xi += αi * di                           # Next point
-        ri2 = ri - αi * di * Vdot               # Remaining error
-        βi = dot(ri2, ri2) / dot(ri, ri)        # New direction
-        di = ri2 + βi * di                      # Direction to move
-        ri = ri2 
+function iterate!(X, C::ConjugateGradient)
+    C.r = BLAS.symm('R', 'L', C.B, X[:,:,C.i])                    # r <- X B - X' V
+    BLAS.symm!('R', 'L', -1.0, C.Vdot, X[:,:,C.i + 1], 1.0, C.r)
+    BLAS.blascopy!(C.np, C.r, 1, C.d, 1)                        # d <- r
+    while norm(C.r) > C.ε
+        C.α = dot(C.r, C.r) / dot(C.d', C.Vdot, C.d')
+        axpy!(C.α, C.d, view(X, :, :, C.i + 1))                           # X  <- X + α d
+        C.r2 = C.r - C.α * C.d * C.Vdot               # Remaining error
+        C.β = dot(C.r2, C.r2) / dot(C.r, C.r)        # New direction
+        C.d = C.r2 + C.β * C.d                      # Direction to move
+        C.r = C.r2
     end
-    return Xi
+    C.i += 1
 end
 
 """
