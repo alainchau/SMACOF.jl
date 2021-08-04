@@ -64,10 +64,10 @@ using Statistics
 # end
 
 @testset "WDA SMACOF" begin
-    X = [0.0    0   1 2;  0.0    1   0 4]
-    Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
-    @test norm(X - Y) ≈ 0 atol = 1e-8
+    # X = [0.0    0   1 2;  0.0    1   0 4]
+    # Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
+    # @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
+    # @test norm(X - Y) ≈ 0 atol = 1e-8
 
     # for i in 1:5
     #     X = randn(2, 100)
@@ -76,10 +76,10 @@ using Statistics
     #     test_xy(X, Y)
     # end
 
-    X = rand(2, 10)
-    Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
-    @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
-    @test norm(X - Y) ≈ 0 atol = 1e-8
+    # X = rand(2, 10)
+    # Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))
+    # @time Y = wda_smacof(dists(Y), η=0.95, verbose=true, anchors=X, ε=1e-12)
+    # @test norm(X - Y) ≈ 0 atol = 1e-8
 
     X = rand(2, 500)
     Y = SMACOF.random2Drotation() * (X .- mean(X, dims=2))

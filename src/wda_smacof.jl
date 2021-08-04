@@ -17,6 +17,8 @@ Reference
     2013 IEEE 9th International Conference on e-Science, 2013, pp. 61-69, doi: 10.1109/eScience.2013.30.
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
+
+    25.136730 seconds (322.75 M allocations: 6.589 GiB, 1.63% gc time, 1.58% compilation time)
 """
 function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
     # Use uniform weights if left unspecified
@@ -26,15 +28,11 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=noth
     end
 
     # Compute largest T such that Δ has at least one nonzero element
-    # Tk = computeT0(Δ, p)
-    # Δk = computeΔ(Δ, W, Tk, p)
-
     Tk, Δk = initialize_T_and_Δ(Δ, W, p)
 
     # Pick random initial mapping
-    X = zeros(itmax, p, size(Δ, 1))
-    X[1, :, :] = randn(size(X[1,:,:]))
-    D = dists(X[1,:,:])
+    X = randn(p, size(Δ, 1), itmax)
+    D = dists(X[:,:,1])
     σ0, σ1 = Inf, stress(D, Δk, W)
 
     Vdot = wda_getVdot(W)
@@ -42,47 +40,35 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=noth
     # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
     i = 1 
     while (Tk ≥ Tmin) && (i < itmax) && abs(σ1 - σ0) > ε
-        X[i + 1, :, :] = conjugate_gradient(X[i,:,:], Δk, B, Vdot, W, ε)
-        D = dists(X[i + 1,:,:])
+        conjugate_gradient!(X, i, Δk, B, Vdot, W, ε)
+        # X[i + 1, :, :] = conjugate_gradient(X[i,:,:], Δk, B, Vdot, W, ε)
+        D = dists(X[:,:,i + 1])
         σ0, σ1 = σ1, stress(D, Δk, W)       
         Tk = η * Tk
         updateΔ!(Δ, Δk, W, Tk, p) 
         B = wda_getB(D, Δk, W, B)
         i += 1
     end
-    @time Y = fit(Smacof(Δ, Xinit=X[i - 1, :, :]), anchors=anchors)
-    return_history && return Y, X[1:i, :, :]
+    Y = fit(Smacof(Δ, Xinit=X[:, :, i], ε=ε), anchors=anchors)
+    return_history && return Y, X[:, :, 1:i]
     return Y
 end
 
-# struct ConjugateGradient
-#     X
-#     r
-#     d
-#     α
-#     β
-#     B
-#     Vdot
-#     ε
-#     function ConjugateGradient(Xk, B, Vdot, ε=1e-8)
-#         X = randn(size(Xk))
-#         r = Xk * B - X * Vdot
-#         d = r
-#         self(X, r, d, 0.0, 0.0, B, Vot, ε)
-#     end
-# end
+function conjugate_gradient!(X, i, Δk, B,  Vdot, W, ε)
+    # Residual error
+    ri = X[:, :, i] * B - X[:, :, i + 1] * Vdot
+    di = ri
 
-# function solve(C::ConjugateGradient)
-#     while norm(C.ri) > C.ε
-#         C.α = dot(C.ri, C.ri) / dot(di, di * Vdot)
-#         C.X += C.α * C.d
-#         r2 = C.r = C.α * C.d * C.Vdot
-#         C.β = dot(r2, r2) / dot(C.r, C.r)
-#         C.d = r2 + C.β * C.d
-#         C.r = r2
-#     end
-#     return C.x
-# end
+    # Converges when residual is small enough
+    while norm(ri) > ε
+        αi = dot(ri, ri) / dot(di, di * Vdot)   # How much we should move by
+        X[:, :, i + 1] += αi * di                           # Next point
+        ri2 = ri - αi * di * Vdot               # Remaining error
+        βi = dot(ri2, ri2) / dot(ri, ri)        # New direction
+        di = ri2 + βi * di                      # Direction to move
+        ri = ri2 
+    end
+end
 
 function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
     # Random initial points for CG
@@ -103,21 +89,6 @@ function conjugate_gradient(Xk, Δk, B,  Vdot, W, ε)
     end
     return Xi
 end
-
-"""
-    computeT0(Δ)
-
-Find largest T_0 such that δij - T sqrt(2p) > 0 for some i,j.
-"""
-computeT0(Δ, p) = maximum(Δ / sqrt(2p)) * 0.99
-
-function computeΔ(Δ, W, T, p)
-    Δk = zeros(size(Δ))
-    updateΔ!(Δ, Δk, W, T, p)
-    return Δk
-end
-
-
 
 """
     updateΔ!(Δ, T, p)

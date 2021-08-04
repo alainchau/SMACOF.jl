@@ -35,7 +35,7 @@ function main(f, relpath, abspath, gifdir, filename; n=500)
     # Make mp4 and then convert to gif
     animation = Animation(abspath, String[])
     for i ∈ 1:size(Xhist, 1)
-        p = scatter(X[1,:], X[2,:], alpha=0.7, markersize=10, label="true");
+        p = scatter(X[1,:], X[2,:], alpha=0.7, markersize=10, label="true", ε=ε);
         Xi = SMACOF.align(Xhist[i,:,:], X)
         scatter!(Xi[1,:], Xi[2,:], label="smacof");
         xlims!((-0.2, 1.2))
