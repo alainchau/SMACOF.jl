@@ -7,6 +7,7 @@ struct Smacof
     b
     σ           # Stress
     ε           # Error tolerance
+    n
     it
     itmax       
     verbose
@@ -30,37 +31,36 @@ struct Smacof
         D = dists(Xhist[:, :, 1])
         b = zeros(size(W))        
         σ = zeros(itmax)
-        σ[1] = stress(Δ, D, W)
+        stress!(σ[1], D, Δ, W)
         verbose && println("1\t stress = ", σ[1])
-        return new(Δ, D, Xhist, W, Vinv, b, σ, ε, [itmax], itmax, verbose)
+        return new(Δ, D, Xhist, W, Vinv, b, σ, ε, size(Δ, 1), [itmax], itmax, verbose)
     end
 end
 
 function update_bmat!(sm::Smacof)
-    for i in eachindex(sm.b)
-        t = (sm.D[i] < sm.ε)
-        sm.b[i] = - sm.W[i] * sm.Δ[i]
-        sm.b[i] *= (1 - t) / (sm.D[i] + t)
+    for j in 1:sm.n, i in 1:(j - 1)
+        @inbounds sm.b[i,j] = ifelse(sm.D[i,j] ≥ sm.ε, - sm.W[i,j] * sm.Δ[i,j] / sm.D[i,j], 0.0)
+        @inbounds sm.b[j,i] = sm.b[i, j]
     end
-    for i in 1:size(sm.b, 1)
-        sm.b[i, i] = -sum(sm.b[i, (1:end) .!= i])
+    for i in 1:sm.n
+        sm.b[i, i] = -sum(sm.b[(1:end) .!= i, i])
     end
 end
 
 function fit(sm::Smacof; anchors=nothing)
     for i in 2:sm.itmax
         update_bmat!(sm)
-        sm.Xhist[:, :, i] = sm.Xhist[:, :, i - 1] * sm.b * sm.Vinv
+        sm.Xhist[:, :, i] = view(sm.Xhist, :, :, i - 1) * sm.b * sm.Vinv
         sm.D[:] = dists(sm.Xhist[:, :, i])
-        sm.σ[i] = stress(sm.Δ, sm.D, sm.W)
+        stress!(sm.σ[i], sm.Δ, sm.D, sm.W)
         sm.verbose && println("$i\t stress = ", sm.σ[i])
         if abs(sm.σ[i - 1] - sm.σ[i]) / sm.σ[i - 1] < sm.ε
             sm.it[1] = i
             break
         end
     end
+    
     if !isnothing(anchors)
-        # println(sm.it[1])
         return SMACOF.align(getbest(sm), anchors) 
     else
         return getbest(sm)

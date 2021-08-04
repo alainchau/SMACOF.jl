@@ -19,7 +19,6 @@ Reference
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
 function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
-    println("ok")
     # Use uniform weights if left unspecified
     if isnothing(W)
         W = ones(size(Δ))
@@ -41,7 +40,7 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=noth
         D = dists(X[:,:,CG.i])
         σ0, σ1 = σ1, stress(D, Δk, W)       
         Tk = η * Tk
-        updateΔ!(Δ, Δk, W, Tk, p) 
+        updateΔ!(Δk, Δ, W, Tk, p) 
         wda_getB(D, Δk, W, CG.B)
         verbose && println(σ1)
     end
@@ -88,7 +87,7 @@ end
 
 Update Δk with respect to T.
 """
-function updateΔ!(Δ, Δk, W, T, p) 
+function updateΔ!(Δk, Δ, W, T, p) 
     for i in eachindex(Δ)
         if W[i] ≈ 0
             Δk[i] = Δ[i]
@@ -100,7 +99,7 @@ end
 function initialize_T_and_Δ(Δ, W, p)
     T = maximum(Δ / sqrt(2p)) * 0.99
     Δk = zeros(size(Δ))
-    updateΔ!(Δ, Δk, W, T, p)
+    updateΔ!(Δk, Δ, W, T, p)
     return T, Δk
 end
 
