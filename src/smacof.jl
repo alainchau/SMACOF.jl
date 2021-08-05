@@ -23,9 +23,9 @@ mutable struct Smacof{T <: AbstractFloat}
             W = ones(size(Δ))
             W[diagind(W)] .= 0.0
         end
-        Xhist = zeros(p, size(Δ, 1), itmax)
-        Xhist[:, :, 1] = ifelse(isnothing(Xinit), classical_mds(Δ), Xinit)
-        D = dists(Xhist[:, :, 1])
+        Xhist = Dict{Int,typeof(Δ)}()
+        Xhist[1] = ifelse(isnothing(Xinit), classical_mds(Δ), Xinit)
+        D = dists(Xhist[1])
         b = Hermitian(zeros(size(W)), :U)        
         σ = zeros(itmax)
         stress!(σ, 1, D, Δ, W)
@@ -45,8 +45,8 @@ end
 function fit(sm::Smacof; anchors=nothing)
     for i in 2:sm.itmax
         update_bmat!(sm)
-        sm.Xhist[:, :, i] = sm.Xhist[ :, :, i - 1] * sm.b * sm.Vinv
-        sm.D[:] = dists(sm.Xhist[:, :, i])
+        sm.Xhist[i] = sm.Xhist[i - 1] * sm.b * sm.Vinv
+        sm.D[:] = dists(sm.Xhist[i])
         stress!(sm.σ, i, sm.Δ, sm.D, sm.W)
         sm.verbose && println("$i\t stress = ", sm.σ[i])
         println(i, "\t", sm.σ[i])
@@ -57,14 +57,13 @@ function fit(sm::Smacof; anchors=nothing)
     end
     
     if !isnothing(anchors)
-        return SMACOF.align(getbest(sm), anchors) 
+        return SMACOF.align(best(sm), anchors) 
     else
-        return getbest(sm)
+        return best(sm)
     end
 end
 
-getbest(sm::Smacof) = sm.Xhist[:, :, sm.it]
-gethist(sm::Smacof) = sm.Xhist[:, :, 1:sm.it]
+best(sm::Smacof) = sm.Xhist[sm.it]
 stress(sm::Smacof) = sm.σ[sm.it]
 
 function _smacof_getVinv(W)

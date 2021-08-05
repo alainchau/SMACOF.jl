@@ -18,107 +18,141 @@ Reference
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
-function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-8, Tmin=1e-8, anchors=nothing, verbose=false, itmax=500, return_history=false)
+function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-6, Tmin=1e-6, 
+    anchors=nothing, verbose=false, DA_itmax=200, CG_itmax=20, return_history=false)
     # Use uniform weights if left unspecified
-    if isnothing(W)
-        W = ones(size(Δ))
-        W[diagind(W)] .= 0
-    end
+    n = size(Δ, 1)
+    isnothing(W) && (W = ones(n, n) - I)
 
     # Compute largest T such that Δ has at least one nonzero element
-    Tk, Δk = initialize_T_and_Δ(Δ, W, p)
+    DA = DeterministicAnnealing(Δ, W, Tmin=Tmin, p=p, η=η, κ=0.99, itmax=DA_itmax)
 
     # Pick random initial mapping
-    X = randn(p, size(Δ, 1), itmax)
-    D = dists(X[:,:,1])
-    σ0, σ1 = Inf, stress(D, Δk, W)
+    X = Dict(1 => randn(p, n))
+    Dk = dists(X[1])
+    σ = [stress(Dk, Δ, W)]
 
     # Conjugate Gradient method to solve  `Vdot × X = B × Xk`   for X.
-    CG = ConjugateGradient(wda_getB(D, Δk, W), wda_getVdot(W), ε, size(X, 1), size(X, 2))
-    while (Tk ≥ Tmin) && (CG.i < itmax) && abs(σ1 - σ0) > ε
-        iterate!(X, CG)
-        D = dists(X[:,:,CG.i])
-        σ0, σ1 = σ1, stress(D, Δk, W)       
-        Tk = η * Tk
-        updateΔ!(Δk, Δ, W, Tk, p) 
-        wda_getB(D, Δk, W, CG.B)
-        verbose && println(σ1)
+    CG = ConjugateGradient(Dk, DA.Δk, W, ε, CG_itmax, p, n)
+    preconditioner = CholeskyPreconditioner(CG.Vdot, 2)
+    while nextiter(DA)
+        X[DA.k] = randn(p, n)
+        iterate!(X, DA.k, preconditioner, CG)
+        Dk = dists(X[DA.k])
+        push!(σ, stress(Dk, DA.Δk, W))
+        updateTk!(DA)
+        updateΔk!(DA, Δ, W)
+        updateB!(CG, Dk, DA.Δk, W)
+        verbose && println("$(DA.k) \t ", σ[end])
+        absolute_error(σ) < ε && break
     end
-    Y = fit(Smacof(Δ, Xinit=X[:, :, CG.i], ε=ε), anchors=anchors)
-    return_history && return Y, X[:, :, 1:i]
+    Y = fit(Smacof(Δ, Xinit=X[DA.k - 1], ε=ε), anchors=anchors)
+    return_history && return Y, X
     return Y
+end
+
+mutable struct DeterministicAnnealing
+    Tk
+    Tmin
+    Δk
+    p::Int      # Target dimensionality
+    k::Int      # Iteration counter
+    itmax::Int
+    η           # Cooling coefficient
+    function DeterministicAnnealing(Δ, W; itmax, Tmin=0.1, p=2, η=0.99, κ=0.99)
+        Tk = maximum(Δ / sqrt(2p)) * κ
+        Δk = zeros(size(Δ))
+        updateΔk!(Δk, Δ, W, Tk, p)
+        return new(Tk, Tmin, Δk, p, 1, itmax, η)
+    end
+end
+
+"""
+    updateΔk!(Δ, T, p)
+
+Update Δk with respect to T.
+"""
+function updateΔk!(Δk, Δ, W, T, p) 
+    for i in eachindex(Δ)
+        if W[i] ≈ 0.0
+            Δk[i] = Δ[i]
+        else
+            Δk[i] = max(0, Δ[i] - T * sqrt(2 * p))
+        end
+    end
+end
+
+updateΔk!(DA, Δ, W) = updateΔk!(DA.Δk, Δ, W, DA.Tk, DA.p)
+updateTk!(DA) = DA.Tk = DA.Tk * DA.η
+iscooled(DA) = DA.Tk < DA.Tmin
+ishot(DA) = DA.Tk > DA.Tmin
+function nextiter(DA)
+    DA.k += 1
+    (DA.k ≤ DA.itmax) && ishot(DA)
 end
 
 mutable struct ConjugateGradient
     r
     r2
     d
-    i
+    z
     α
     β
     B
     Vdot
     ε
+    itmax::Int
     p::Int
     n::Int
     np::Int
-    function ConjugateGradient(B, Vdot, ε, p, n)
-        return new(zeros(p, n), zeros(p, n), zeros(p, n), 1, 0.0, 0.0, B, Vdot, ε, p, n, n * p)
+    function ConjugateGradient(D, Δk, W, ε, itmax, p, n)
+        # Initialize B matrix
+        B = zeros(size(W))
+        for i in 1:size(Δk, 1)
+            for j in (i + 1):size(Δk, 1)
+                B[i, j] = - W[i, j] * Δk[i, j] / D[i, j]
+                B[j, i] = B[i, j]
+            end
+        end
+        B[diagind(B)] = - sum(B, dims=2)
+    
+        # Initialize Vdot
+        Vdot = - Matrix{Float64}(W)
+        for i in 1:size(W, 1)
+            Vdot[i, i] = 1 + sum(W[1:end .!= i, i])
+        end
+
+        return new(zeros(p, n), zeros(p, n), zeros(p, n), zeros(p, n), 
+                0.0, 0.0, B, Vdot, ε, itmax, p, n, n * p)
     end
 end
 
-function iterate!(X, C::ConjugateGradient)
-    C.r = BLAS.symm('R', 'L', C.B, X[:,:,C.i])                    # r <- X B - X' V
-    BLAS.symm!('R', 'L', -1.0, C.Vdot, X[:,:,C.i + 1], 1.0, C.r)
-    BLAS.blascopy!(C.np, C.r, 1, C.d, 1)                        # d <- r
-    while norm(C.r) > C.ε
-        C.α = dot(C.r, C.r) / dot(C.d', C.Vdot, C.d')
-        axpy!(C.α, C.d, view(X, :, :, C.i + 1))                           # X  <- X + α d
-        C.r2 = C.r - C.α * C.d * C.Vdot               # Remaining error
-        C.β = dot(C.r2, C.r2) / dot(C.r, C.r)        # New direction
-        C.d = C.r2 + C.β * C.d                      # Direction to move
+function iterate!(X, k, preconditioner, C::ConjugateGradient)
+    L = preconditioner.L
+    C.r = BLAS.symm('R', 'L', C.B, X[k - 1])                # r <- X * B - X' * V
+    BLAS.symm!('R', 'L', -1.0, C.Vdot, X[k], 1.0, C.r)
+    C.z[:] = (L' \ (L \ C.r'))'                             # z <- M^-1 * r
+    BLAS.blascopy!(C.np, C.z, 1, C.d, 1)                    # d <- r
+    threshold = C.ε * norm(X[k - 1] * C.B)
+    for t in 1:C.itmax
+        norm(C.r)  < threshold && break
+        C.α = dot(C.r, C.z) / dot(C.d', C.Vdot, C.d')
+        axpy!(C.α, C.d, X[k])                               # X  <- X + α d
+        C.r2 = C.r - C.α * C.d * C.Vdot                     # Remaining error
+        C.z[:] = (L' \ (L \ C.r'))'                         # z <- M^-1 * r
+        C.β = dot(C.r2, C.z) / dot(C.r, C.z)                # New direction
+        C.d = C.z + C.β * C.d                               # Direction to move
         C.r = C.r2
     end
-    C.i += 1
 end
 
-"""
-    updateΔ!(Δ, T, p)
-
-Update Δk with respect to T.
-"""
-function updateΔ!(Δk, Δ, W, T, p) 
-    for i in eachindex(Δ)
-        if W[i] ≈ 0
-            Δk[i] = Δ[i]
-        end
-        Δk[i] = max(0, Δ[i] - T * sqrt(2p))
-    end
-end
-
-function initialize_T_and_Δ(Δ, W, p)
-    T = maximum(Δ / sqrt(2p)) * 0.99
-    Δk = zeros(size(Δ))
-    updateΔ!(Δk, Δ, W, T, p)
-    return T, Δk
-end
-
-function wda_getVdot(W)
-    Vdot = - Matrix{Float64}(W)
-    for i in 1:size(W, 1)
-        Vdot[i, i] = 1 + sum(W[1:end .!= i, i])
-    end
-    return Vdot
-end
-
-function wda_getB(D, Δk, W, B=zeros(size(W)))
-    B .= 0
+function updateB!(CG::ConjugateGradient, Dk, Δk, W)
     for i in 1:size(Δk, 1)
         for j in (i + 1):size(Δk, 1)
-            B[i, j] = - W[i, j] * Δk[i, j] / D[i, j]
-            B[j, i] = B[i, j]
+            CG.B[i, j] = - W[i, j] * Δk[i, j] / Dk[i, j]
+            CG.B[j, i] = CG.B[i, j]
         end
     end
-    B[diagind(B)] = - sum(B, dims=2)
-    return B
+    CG.B[diagind(CG.B)] .= 0
+    CG.B[diagind(CG.B)] = - sum(CG.B, dims=2) 
 end

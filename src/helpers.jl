@@ -48,6 +48,19 @@ This method is a simple wrapper for the MultivariateStats library.
 """
 classical_mds(Δ, p=2) = transform(fit(MDS, Δ, maxoutdim=p, distances=true))
 
+"""
+    relative_error(v, i)
+
+Give the relative error of the measurement at i in the vector v.
+"""
+relative_error(v) = abs(v[end] - v[end - 1]) / v[end - 1]
+
+"""
+    absolute_error(v, i)
+
+Give the absolute error of the measurement at i in the vector v.
+"""
+absolute_error(v) = abs(v[end] - v[end - 1]) 
 
 
 """
@@ -66,3 +79,4 @@ function clear_plots(shape="square_hole")
         run(`rm plots/$(shape)/$(f)`)
     end
 end
+
