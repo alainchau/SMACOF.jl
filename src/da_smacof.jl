@@ -1,11 +1,4 @@
 """
-    da_computeT0(Δ)
-
-Find largest T_0 such that δij - T sqrt(2p) > 0 for some i,j.
-"""
-da_computeT0(Δ, p) = maximum(Δ / sqrt(2p)) * 0.99
-
-"""
     da_updateΔ!(Δ, T, p)
 
 Update Δk with respect to T.
@@ -38,21 +31,18 @@ Reference
 function da_smacof(Δ; α=0.9, p=2, ε=1e-5, anchors=nothing, verbose=false)
     Tmin = 1e-8 # Based on the paper, this param is ignored/unimportant
     n = size(Δ, 1)
-    Tk = da_computeT0(Δ, p)
+    Tk = maximum(Δ / sqrt(2p)) * 0.99
     Δk = max.(0, Δ .- Tk * sqrt(2p))
-    Xk = rand(p, n)
-    σ0 = 0
+    Xk = rand(n, p)
+    σ = Float64[]
     while Tk ≥ Tmin
         smk = Smacof(Δk, Xinit=Xk)
         Xk = fit(smk)
-        σ1 = stress(smk)
-        verbose && println("stress = ", σ1)
-        if abs(σ1 - σ0) / σ0 < ε
-            break
-        end 
+        push!(σ, smk.σ[end])
+        verbose && println("stress = ", σ[end])
+        length(σ) > 2 && relative_error(σ) < ε && break
         Tk = α * Tk
         da_updateΔ!(Δ, Δk, Tk, p) 
-        σ0 = σ1
     end
     verbose && println("Final Xinit = $Xk")
     return fit(Smacof(Δ, Xinit=Xk), anchors=anchors)

@@ -20,7 +20,8 @@ mutable struct Smacof{T <: AbstractFloat}
         if isnothing(W) 
             W = ones(n, n) - I(n)
         end
-        Xhist = Dict(1 => ifelse(isnothing(Xinit), classical_mds(Δ), Xinit))
+        isnothing(Xinit) && (Xinit = classical_mds(Δ))
+        Xhist = Dict(1 => Xinit)
         D = dists(Xhist[1])
         b = Hermitian(zeros(n, n), :U)        
         σ = [stress(D, Δ, W)]

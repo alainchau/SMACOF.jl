@@ -50,6 +50,12 @@ end
     end
 end
 
+@testset "da smacof" begin
+    for n in [10, 20, 30, 40, 50]
+        recover_noiseless_configuration((Δ, anchors) -> da_smacof(Δ, anchors=anchors), n)
+    end
+end
+
 @testset "wda smacof" begin
     for n in [10, 20, 30, 40, 50]
         recover_noiseless_configuration((Δ, anchors) -> wda_smacof(Δ, anchors=anchors), n)
