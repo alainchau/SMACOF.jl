@@ -4,7 +4,6 @@ using Distances
 using LinearAlgebra
 import MultivariateStats: transform, fit
 using MultivariateStats
-using Preconditioners
 import Statistics.mean
 
 include("da_smacof.jl")
