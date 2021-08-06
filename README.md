@@ -53,6 +53,8 @@ run(`rm $(gifdir)$(filename).mp4`)
 # Clear image folder
 for f in readdir(relpath)
     run(`rm $relpath/$(f)`)
-end```
-
-![](https://github.com/alainchau/SMACOF.jl/blob/main/examples/simple/simple.gif)
+end
+```
+<p align="center">
+<img src="https://github.com/alainchau/SMACOF.jl/blob/main/examples/simple/simple.gif" width="600" height="400">
+</p>
