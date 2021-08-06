@@ -48,7 +48,7 @@ function wda_smacof(Δ, W=nothing; Xinit=nothing, η=0.9, p=2, ε=1e-6, Tmin=1e-
         absolute_error(σ) < ε && break
     end
     Y = fit(Smacof(Δ, Xinit=X[DA.k], ε=ε), anchors=anchors)
-    return_history && return Y, X, σ
+    return_history && return Y, X
     return Y
 end
 
