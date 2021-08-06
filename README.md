@@ -8,7 +8,7 @@
 SMACOF is a multidimensional scaling algorithm which minimizes an objective function (the stress) using a majorization technique. The result is typically a configuration of points in a lower-dimensional space.
 
 ## Example
-```
+```julia
 using SMACOF
 using Plots
 using Random
