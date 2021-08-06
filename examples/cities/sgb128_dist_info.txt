@@ -1,0 +1,3 @@
+SGB128 contains road distances between 128 cities in North America.
+
+Obtained from https://people.sc.fsu.edu/~jburkardt/datasets/cities/cities.html

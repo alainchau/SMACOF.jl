@@ -41,8 +41,9 @@ function fit(sm::Smacof; anchors=nothing)
         absolute_error(sm.σ) < sm.ε && break
     end
     
-    !isnothing(anchors) && return SMACOF.align(best(sm), anchors) 
-    return best(sm)
+    isnothing(anchors) && return best(sm)
+
+    return SMACOF.align(best(sm), anchors) 
 end
 
 function update_bmat!(sm::Smacof)

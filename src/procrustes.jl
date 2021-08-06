@@ -12,7 +12,9 @@ struct Procrustes
     end
 end
 
-function align(xs, ys)
+function align(X, anchors)
+    xs = X[anchors.idx, :]
+    ys = anchors.pos
     p = Procrustes(xs, ys)
-    return xs * p.R .+ p.t
+    return X * p.R .+ p.t
 end

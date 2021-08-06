@@ -14,7 +14,7 @@ function stress(DX, DY, W)
     s = 0.0
     for j in 1:size(W, 1)
         for i in (j + 1):size(W, 2)
-            s += W[i, j] * (DX[i, j] - DY[i, j])^2
+            s += W[i, j] * (DX[i, j] - DY[i, j])^2 / DX[i, j]^2
         end
     end
     return s
