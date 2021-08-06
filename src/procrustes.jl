@@ -13,8 +13,13 @@ struct Procrustes
 end
 
 function align(X, anchors)
-    xs = X[anchors.idx, :]
-    ys = anchors.pos
+    if typeof(anchors) <: Matrix
+        xs = X
+        ys = anchors
+    else
+        xs = X[anchors.idx, :]
+        ys = anchors.pos
+    end
     p = Procrustes(xs, ys)
     return X * p.R .+ p.t
 end
