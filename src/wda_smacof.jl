@@ -28,7 +28,7 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-6, Tmin=1e-6,
     DA = DeterministicAnnealing(Δ, W, Tmin=Tmin, p=p, η=η, κ=0.99, itmax=DA_itmax)
 
     # Pick random initial mapping
-    X = Dict(1 => randn(p, n))
+    X = Dict(1 => randn(n, p))
     Dk = dists(X[1])
     σ = [stress(Dk, Δ, W)]
 
@@ -36,7 +36,7 @@ function wda_smacof(Δ, W=nothing; η=0.9, p=2, ε=1e-6, Tmin=1e-6,
     CG = ConjugateGradient(Dk, DA.Δk, W, ε, CG_itmax, p, n)
     preconditioner = CholeskyPreconditioner(CG.Vdot, 2)
     while nextiter(DA)
-        X[DA.k] = randn(p, n)
+        X[DA.k] = randn(n, p)
         iterate!(X, DA.k, preconditioner, CG)
         Dk = dists(X[DA.k])
         push!(σ, stress(Dk, DA.Δk, W))
@@ -107,39 +107,38 @@ mutable struct ConjugateGradient
     np::Int
     function ConjugateGradient(D, Δk, W, ε, itmax, p, n)
         # Initialize B matrix
-        B = zeros(size(W))
-        for i in 1:size(Δk, 1)
-            for j in (i + 1):size(Δk, 1)
-                B[i, j] = - W[i, j] * Δk[i, j] / D[i, j]
-                B[j, i] = B[i, j]
-            end
+        n = size(D, 1)
+        B = zeros(n, n)
+        for j in 1:n, i in 1:(j - 1)
+            B[i, j] = - W[i, j] * Δk[i, j] / D[i, j]
+            B[j, i] = B[i, j]
         end
         B[diagind(B)] = - sum(B, dims=2)
     
         # Initialize Vdot
         Vdot = - Matrix{Float64}(W)
-        for i in 1:size(W, 1)
+        for i in 1:n
             Vdot[i, i] = 1 + sum(W[1:end .!= i, i])
         end
 
-        return new(zeros(p, n), zeros(p, n), zeros(p, n), zeros(p, n), 
+        return new(zeros(n, p), zeros(n, p), zeros(n, p), zeros(n, p), 
                 0.0, 0.0, B, Vdot, ε, itmax, p, n, n * p)
     end
 end
 
 function iterate!(X, k, preconditioner, C::ConjugateGradient)
     L = preconditioner.L
-    C.r = BLAS.symm('R', 'L', C.B, X[k - 1])                # r <- X * B - X' * V
-    BLAS.symm!('R', 'L', -1.0, C.Vdot, X[k], 1.0, C.r)
-    C.z[:] = (L' \ (L \ C.r'))'                             # z <- M^-1 * r
+    C.r = BLAS.symm('L', 'L', C.B, X[k - 1])                # r <- B * X - V * X'
+    BLAS.symm!('L', 'L', -1.0, C.Vdot, X[k], 1.0, C.r)
+    C.z[:] = L' \ (L \ C.r)                             # z <- M^-1 * r
     BLAS.blascopy!(C.np, C.z, 1, C.d, 1)                    # d <- r
-    threshold = C.ε * norm(X[k - 1] * C.B)
+    # threshold = C.ε * norm(C.B * X[k - 1])
     for t in 1:C.itmax
-        norm(C.r)  < threshold && break
-        C.α = dot(C.r, C.z) / dot(C.d', C.Vdot, C.d')
+        norm(C.r)  < C.ε && break
+        C.α = dot(C.r, C.z) / dot(C.d, C.Vdot, C.d)
         axpy!(C.α, C.d, X[k])                               # X  <- X + α d
-        C.r2 = C.r - C.α * C.d * C.Vdot                     # Remaining error
-        C.z[:] = (L' \ (L \ C.r'))'                         # z <- M^-1 * r
+        C.r2 = C.r - C.α * C.Vdot * C.d                     # Remaining error
+        C.z[:] = L' \ (L \ C.r2)                         # z <- M^-1 * r
         C.β = dot(C.r2, C.z) / dot(C.r, C.z)                # New direction
         C.d = C.z + C.β * C.d                               # Direction to move
         C.r = C.r2
