@@ -23,3 +23,5 @@ function align(X, anchors)
     p = Procrustes(xs, ys)
     return X * p.R .+ p.t
 end
+
+transform(X, p::Procrustes) = X * p.R .+ p.t

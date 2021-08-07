@@ -4,9 +4,6 @@ using Distances
 using LinearAlgebra
 using Random
 using Statistics
-using BenchmarkTools
-# using Plots
-# ENV["GKSwstype"] = "100"
 Random.seed!(1993)
 
 @testset "stress/distortion" begin
@@ -18,7 +15,7 @@ Random.seed!(1993)
     @test distortion(A, B) ≈ 0.1
 end
 
-@testset "align" begin
+@testset "Procrustes" begin
     A = [0.0 0.0;
          0   1;
          1   0]
@@ -35,6 +32,10 @@ end
     for i in eachindex(Ahat)
         @test Ahat[i] ≈ A[i] atol = 1e-8
     end
+
+    p = SMACOF.Procrustes(B, A)
+    Ahat = SMACOF.transform(B, p)
+    @test norm(A - Ahat) ≈ 0.0 atol = 1e-8
 end
 
 function recover_noiseless_configuration(f, n=50)
