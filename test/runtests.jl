@@ -38,42 +38,62 @@ end
     @test norm(A - Ahat) ≈ 0.0 atol = 1e-8
 end
 
-function recover_noiseless_configuration(f, n=50)
-    X = rand(n, 2)
-    Δ = dists(X)
-    Xhat = f(Δ, X)
-    @test SMACOF.mse(X, Xhat) < 1e-6
-end
 
-@testset "smacof" begin
-    for n in [10, 20, 30, 40, 50]
-        recover_noiseless_configuration((Δ, anchors) -> fit(Smacof(Δ), anchors=anchors), n)
+@testset "recover noiseless configuration" begin
+    nlst = [10, 20, 30, 40, 50]
+    X = Dict(n => rand(n, 2) for n in nlst)
+    Δ = Dict(n => dists(X[n]) for n in nlst)
+    ϵ = 1e-6
+    
+    @testset "smacof" begin
+        for n in nlst
+            Xhat = fit(Smacof(Δ[n]), anchors = X[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
+    end
+
+    @testset "da_smacof" begin
+        for n in nlst
+            Xhat = da_smacof(Δ[n], anchors = X[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
+    end
+
+    @testset "wda_smacof" begin
+        for n in nlst
+            Xhat = wda_smacof(Δ[n], anchors = X[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
     end
 end
 
-@testset "da smacof" begin
-    for n in [10, 20, 30, 40, 50]
-        recover_noiseless_configuration((Δ, anchors) -> da_smacof(Δ, anchors=anchors), n)
+@testset "noiseless configuration with some anchors" begin
+    nlst = [10, 20, 30, 40, 50]
+    n_anchors = 5
+    X = Dict(n => rand(n, 2) for n in nlst)
+    anchors = Dict(n => (idx = 1:n_anchors, pos = X[n][1:n_anchors, :]) for n in nlst)
+    Δ = Dict(n => dists(X[n]) for n in nlst)
+    ϵ = 1e-6
+    
+    @testset "smacof" begin
+        for n in nlst
+            Xhat = fit(Smacof(Δ[n]), anchors = anchors[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
     end
-end
 
-@testset "wda smacof" begin
-    for n in [10, 20, 30, 40, 50]
-        recover_noiseless_configuration((Δ, anchors) -> wda_smacof(Δ, anchors=anchors), n)
+    @testset "da_smacof" begin
+        for n in nlst
+        Xhat = da_smacof(Δ[n], anchors = anchors[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
     end
-end
 
-function recover_noiseless_configuration_partial(f, n=50)
-    X = rand(n, 2)
-    Δ = dists(X)
-    anchors = (idx = 1:5, pos = X[1:5, :])
-    Xhat = f(Δ, anchors)
-    @test SMACOF.mse(X, Xhat) < 1e-6
-end
-
-@testset "smacof" begin
-    for n in [10, 20, 30, 40, 50]
-        recover_noiseless_configuration_partial((Δ, anchors) -> fit(Smacof(Δ), anchors=anchors), n)
+    @testset "wda_smacof" begin
+        for n in nlst
+            Xhat = wda_smacof(Δ[n], anchors = anchors[n])
+            @test SMACOF.mse(X[n], Xhat) < ϵ
+        end
     end
 end
 

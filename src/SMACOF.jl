@@ -2,6 +2,7 @@ module SMACOF
 
 using Distances
 using LinearAlgebra
+import LinearAlgebra.issymmetric
 import MultivariateStats: transform, fit
 using MultivariateStats
 import Statistics.mean
