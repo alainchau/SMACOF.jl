@@ -38,17 +38,6 @@ function distortion(X, Y)
 end
 
 """
-    classical_mds(Δ, p=2)
-
-Use classical scaling with dissimilarity matrix Δ.
-
-This method is a simple wrapper for the MultivariateStats library.
-"""
-function classical_mds(Δ, p = 2)
-    copy(transform(fit(MDS, Δ, maxoutdim = p, distances = true))')
-end
-
-"""
     relative_error(v, i)
 
 Give the relative error of the measurement at i in the vector v.
@@ -117,7 +106,7 @@ Otherwise, normalize W so that
 \\sum_{i<j} W[i,j] * Δ[i,j]^2 = \frac{n * (n-1)}{2}
 ```
 """
-function getweights(Δ, W)
+function initweights(Δ, W)
     n = size(Δ, 1)
     if isnothing(W)
         W = ones(n, n) - I
@@ -128,3 +117,33 @@ function getweights(Δ, W)
     end
     return W
 end
+
+function getVinv(W)
+    V = - Matrix{Float64}(W)
+    V[diagind(V)] = - sum(V, dims = 1)
+    return Hermitian(pinv(V))
+end
+
+function updateB!(B::Hermitian, Δ, D, W)
+    for j in 1:size(Δ, 1), i in 1:(j - 1)
+        if D[i, j] < 1e-8 || W[i,j] < 1e-8 
+            B.data[i,j] = 0
+            continue
+        end
+        B.data[i, j] = - W[i, j] * Δ[i, j] / D[i, j]
+    end
+    B.data[diagind(B)] .= 0
+    B.data[diagind(B)] = - sum(B, dims = 2) 
+end
+
+# function updateB!(CG::ConjugateGradient, Dk, Δk, W)
+#     for j in 1:size(Δk, 1), i in 1:(j - 1)
+#         if Dk[i, j] < 1e-8 || W[i,j] < 1e-8 
+#             CG.B.data[i,j] = 0
+#             continue
+#         end
+#         CG.B.data[i, j] = - W[i, j] * Δk[i, j] / Dk[i, j]
+#     end
+#     CG.B.data[diagind(CG.B)] .= 0
+#     CG.B.data[diagind(CG.B)] = - sum(CG.B, dims = 2) 
+# end

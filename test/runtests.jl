@@ -6,6 +6,14 @@ using Random
 using Statistics
 Random.seed!(1993)
 
+@testset "classical scaling" begin
+    X = rand(50, 2)
+    Δ = SMACOF.dists(X)
+    X̂ = classical_scaling(Δ)
+    Δ̂ = SMACOF.dists(X̂)
+    @test norm(Δ - Δ̂) < 1e-8
+end
+
 @testset "stress/distortion" begin
     A = [0.0    0; 0    1; 1   0]
     B = [0.0   .1 ; 0  1; 1   0]
@@ -33,7 +41,7 @@ end
         @test Ahat[i] ≈ A[i] atol = 1e-8
     end
 
-    p = SMACOF.Procrustes(B, A)
+        p = SMACOF.Procrustes(B, A)
     Ahat = SMACOF.transform(B, p)
     @test norm(A - Ahat) ≈ 0.0 atol = 1e-8
 end
@@ -52,14 +60,14 @@ end
         end
     end
 
-    @testset "da_smacof" begin
+            @testset "da_smacof" begin
         for n in nlst
             Xhat = da_smacof(Δ[n], anchors = X[n])
             @test SMACOF.mse(X[n], Xhat) < ϵ
         end
     end
 
-    @testset "wda_smacof" begin
+            @testset "wda_smacof" begin
         for n in nlst
             Xhat = wda_smacof(Δ[n], anchors = X[n])
             @test SMACOF.mse(X[n], Xhat) < ϵ
@@ -67,7 +75,7 @@ end
     end
 end
 
-@testset "noiseless configuration with some anchors" begin
+            @testset "noiseless configuration with some anchors" begin
     nlst = [10, 20, 30, 40, 50]
     n_anchors = 5
     X = Dict(n => rand(n, 2) for n in nlst)
@@ -78,7 +86,7 @@ end
     @testset "smacof" begin
         for n in nlst
             Xhat = fit(Smacof(Δ[n]), anchors = anchors[n])
-            @test SMACOF.mse(X[n], Xhat) < ϵ
+        @test SMACOF.mse(X[n], Xhat) < ϵ
         end
     end
 
