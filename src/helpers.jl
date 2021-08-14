@@ -3,52 +3,18 @@
 
 Compute the stress.
 """
-function stress(DX, DY, W)
-    if size(DX, 1) != size(DX, 2)
-        DX = pairwise(Euclidean(), DX, dims = 1)
-    end
-    if size(DY, 1) != size(DY, 2)
-        DY = pairwise(Euclidean(), DY, dims = 1)
-    end
-
-    return _stress(DX, DY, W)
-end
-
-function _stress(DX, DY, W)    
+function stress(Δ, Λ, W)    
+    n = size(Δ, 1)
     s = 0.0
-    for j in 1:size(W, 1)
-        for i in (j + 1):size(W, 2)
-            W[i, j] ≈ 0.0 && continue
-            s += W[i, j] * (DX[i, j] - DY[i, j])^2
-            if isnan(s)
-                @show W[i, j]
-                @show DX[i, j]
-                @show DY[i, j]
-                error("s is NaN")
-            end
-        end
+    for j in 1:n, i in (j + 1):n
+        W[i, j] ≈ 0.0 && continue
+        s += W[i, j] * (Δ[i, j] - Λ[i, j])^2
+        isnan(s) && error("s is NaN!")
     end
-    return s
+    s
 end
 
-function distortion(X, Y)
-    DX = pairwise(Euclidean(), X, dims = 1)
-    DY = pairwise(Euclidean(), Y, dims = 1)
-    return  maximum(abs.(DX - DY))
-end
-
-"""
-    relative_error(v, i)
-
-Give the relative error of the measurement at i in the vector v.
-"""
 relative_error(v) = abs(v[end] - v[end - 1]) / v[end - 1]
-
-"""
-    absolute_error(v, i)
-
-Give the absolute error of the measurement at i in the vector v.
-"""
 absolute_error(v) = abs(v[end] - v[end - 1]) 
 
 
@@ -59,24 +25,23 @@ Get Euclidean distance matrix for X (with rows representing points).
 """
 dists(X) = pairwise(Euclidean(), X, dims = 1)
 
+dists!(D, X) = pairwise!(D, Euclidean(), X, dims = 1)
 
-random2Drotation() = qr(randn(2, 2)).Q
-random3Drotation() = qr(randn(3, 3)).Q
+"""
+    rotate(A)
 
+Rotate a 2 or 3 dimensional matrix `A`.
+"""
+function rotate(A)
+    p = size(A, 2)
+    A * qr(randn(p, p)).Q
+end
 
 function mse(X, Y) 
-    ret = mean(sum(skipmissing(X - Y).^2, dims = 2))  
-    isnan(ret) && @show sum(isnan.(X))
-    isnan(ret) && @show sum(isnan.(Y))
-    return ret
+    mean(sum(skipmissing(X - Y).^2, dims = 2))  
 end
 
-function mse(X, Y, W) 
-    ret = mean(sum(skipmissing(X[W] - Y[W]).^2, dims = 2))  
-    isnan(ret) && @show sum(isnan.(X))
-    isnan(ret) && @show sum(isnan.(Y))
-    return ret
-end
+mse(X, Y, W) = mse(X[W], Y[W])
 
 """
     issymmetric(A::Matrix{Union{Missing,T}})
@@ -98,7 +63,7 @@ function issymmetric(A::Matrix{Union{Missing,T}}) where {T}
 end
 
 """
-    get_weights(Δ, W)
+    initweights(Δ, W)
 
 If W is nothing, then return nxn matrix of ones with zeros on the diagonal. 
 Otherwise, normalize W so that 
@@ -118,10 +83,11 @@ function initweights(Δ, W)
     return W
 end
 
-function getVinv(W)
+function getV(W; inv = true)
     V = - Matrix{Float64}(W)
     V[diagind(V)] = - sum(V, dims = 1)
-    return Hermitian(pinv(V))
+    inv && return Hermitian(pinv(V))
+    Hermitian(V)
 end
 
 function updateB!(B::Hermitian, Δ, D, W)
@@ -135,15 +101,3 @@ function updateB!(B::Hermitian, Δ, D, W)
     B.data[diagind(B)] .= 0
     B.data[diagind(B)] = - sum(B, dims = 2) 
 end
-
-# function updateB!(CG::ConjugateGradient, Dk, Δk, W)
-#     for j in 1:size(Δk, 1), i in 1:(j - 1)
-#         if Dk[i, j] < 1e-8 || W[i,j] < 1e-8 
-#             CG.B.data[i,j] = 0
-#             continue
-#         end
-#         CG.B.data[i, j] = - W[i, j] * Δk[i, j] / Dk[i, j]
-#     end
-#     CG.B.data[diagind(CG.B)] .= 0
-#     CG.B.data[diagind(CG.B)] = - sum(CG.B, dims = 2) 
-# end

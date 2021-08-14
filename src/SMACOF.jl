@@ -1,11 +1,12 @@
 module SMACOF
 
-using Distances
+using Base:AbstractFloat
+import Base:axes, getindex, setindex!, last, *
 using LinearAlgebra
-import LinearAlgebra.issymmetric
-# import MultivariateStats: transform, fit
-# using MultivariateStats
-import Statistics.mean
+import LinearAlgebra:AbstractMatrix,diagind
+using Distances
+import LinearAlgebra:issymmetric, mul!
+import Statistics: sum, mean
 
 include("cmds.jl")
 include("da_smacof.jl")
@@ -14,15 +15,11 @@ include("procrustes.jl")
 include("smacof.jl")
 include("wda_smacof.jl")
 
-# export classical_mds
 export classical_scaling
 export da_smacof
-export distortion
 export dists
-export fit
-export gethist
 export stress
-export Smacof
+export smacof
 export wda_smacof
 
 end
