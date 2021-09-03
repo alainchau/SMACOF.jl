@@ -24,7 +24,7 @@ end
 cities_names = readdlm("examples/cities/sgb128_names.txt", ',', skipstart=2)[:, 2]
 cities_names = map(x -> x[2:end], cities_names)
 
-Δ = dists(cities_lat_lon)
+Δ = distance_matrix(cities_lat_lon)
 anchors = (idx = 1:128, pos = cities_lat_lon)
 
 Xhist = wda_smacof(Δ, η=0.8, verbose=true, anchors=anchors, ε=1e-6, return_history=true)[2]

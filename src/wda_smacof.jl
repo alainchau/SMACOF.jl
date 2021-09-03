@@ -19,8 +19,7 @@ Reference
 
     http://grids.ucs.indiana.edu/ptliupages/publications/WDA-SMACOF_v1.02.pdf
 """
-function wda_smacof(Δ, W = nothing; Xinit = nothing, η = 0.9, p = 2, ε = 1e-6, Tmin = 1e-6, κ = 0.9,
-    anchors = nothing, verbose = false, itmax = 100, DA_itmax = 100, return_history = false)
+function wda_smacof(Δ, W = nothing; Xinit = nothing, η = 0.95, p = 2, ε = 1e-6, Tmin = 1e-8, κ = 0.95, anchors = nothing, verbose = false, itmax = 100, DA_itmax = 100, return_history = false)
     # Use uniform weights if left unspecified
     n = size(Δ, 1)
     W = initweights(Δ, W)
@@ -30,8 +29,8 @@ function wda_smacof(Δ, W = nothing; Xinit = nothing, η = 0.9, p = 2, ε = 1e-6
 
     # Pick random initial mapping
     X = Dict(1 => ifelse(isnothing(Xinit), rand(n, p), Xinit))
-    Dk = dists(X[1])
-    σ = [stress(Dk, Δ, W)]
+    Dk = distance_matrix(X[1])
+    σ = [stress1(Dk, Δ, W)]
     verbose && println("$(DA.k) \t $(round(σ[end], digits = 6))")
     
     # Conjugate Gradient method to solve  `Bdot = B × X = Vdot × Xk`   for X.
@@ -42,14 +41,16 @@ function wda_smacof(Δ, W = nothing; Xinit = nothing, η = 0.9, p = 2, ε = 1e-6
         X[DA.k] = deepcopy(X[DA.k - 1])
         iterate!(X, DA.k, CG, verbose)
         # X[DA.k] = CG.Vdot * CG.B * X[DA.k - 1]
-        Dk = dists(X[DA.k])
-        push!(σ, stress(Dk, DA.Δk, W))
-        verbose && println("$(DA.k) \t $(DA.Tk) \t $(round(σ[end], digits = 12))")
+        Dk = distance_matrix(X[DA.k])
+        # push!(σ, stress1(Dk, DA.Δk, W))
+        push!(σ, stress1(Dk, Δ, W))
+        verbose && println("$(DA.k) stress1 = \t $(round(σ[end], digits = 12))")
         absolute_error(σ) < ε && break
         updateTk!(DA)
         updateΔk!(DA, Δ, W)
     end
-    Y = fit(Smacof(Δ, Xinit = X[DA.k], W = W, ε = ε, itmax = itmax, verbose = verbose), anchors = anchors)
+    Y = smacof(Δ, W = W, Xinit = X[DA.k], anchors = anchors, ε = ε, itmax = itmax, verbose = verbose)
+    # Y = fit(Smacof(Δ, Xinit=X[DA.k], W=W, ε=ε, itmax=itmax, verbose=verbose), anchors=anchors)
     return_history && return Y, X
     return Y
 end

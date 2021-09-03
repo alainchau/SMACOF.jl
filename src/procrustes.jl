@@ -3,8 +3,8 @@ struct Procrustes
     t
     function Procrustes(X, Y)
         # https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem
-        mX = mean(X, dims=1)
-        mY = mean(Y, dims=1)
+        mX = mean(X, dims = 1)
+        mY = mean(Y, dims = 1)
         Xb, Yb = X .- mX, Y .- mY
         s = svd(Xb' * Yb)
         R = s.U * s.V'

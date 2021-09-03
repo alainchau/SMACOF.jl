@@ -3,7 +3,40 @@
 
 Compute the stress.
 """
-function stress(Δ, Λ, W)    
+function stress(Δ, Λ, W = ones(size(Δ)))    
+    n = size(Δ, 1)
+    s = 0.0
+    for j in 1:n, i in (j + 1):n
+        s += W[i, j] * (Δ[i, j] - Λ[i, j])^2
+    end
+    return s
+end
+
+"""
+    initweights(Δ, W=nothing)
+
+Normalize W so that 
+```math
+\\sum_{i<j} W[i,j] * Δ[i,j]^2 = \\frac{n * (n-1)}{2}
+```
+"""
+function initweights(Δ, W = nothing)
+    n = size(Δ, 1)
+    if isnothing(W)
+        W = ones(n, n) - I
+    end
+    C = sum(tril(W .* Δ.^2, -1))
+    k = 2 / (n * (n - 1))
+    return W / C / k
+end
+
+
+"""
+    stress1(X, Y, W)
+
+Compute the stress.
+"""
+function stress1(Δ, Λ, W)    
     n = size(Δ, 1)
     s = 0.0
     for j in 1:n, i in (j + 1):n
@@ -11,7 +44,19 @@ function stress(Δ, Λ, W)
         s += W[i, j] * (Δ[i, j] - Λ[i, j])^2
         isnan(s) && error("s is NaN!")
     end
-    s
+    sqrt(s / sum(tril(W .* Λ.^2, -1)))
+end
+
+function stress1(Δ, Λ)    
+    n = size(Δ, 1)
+    s = 0.0
+    sden = 0.0
+    for j in 1:n, i in (j + 1):n
+        s += (Δ[i, j] - Λ[i, j])^2
+        sden += Λ[i, j]^2
+        isnan(s) && error("s is NaN!")
+    end
+    return s / sden
 end
 
 relative_error(v) = abs(v[end] - v[end - 1]) / v[end - 1]
@@ -19,13 +64,13 @@ absolute_error(v) = abs(v[end] - v[end - 1])
 
 
 """
-    dists(X)
+    distance_matrix(X)
 
-Get Euclidean distance matrix for X (with rows representing points).
+Get (unsquared) Euclidean distance matrix for X (with rows representing points).
 """
-dists(X) = pairwise(Euclidean(), X, dims = 1)
+distance_matrix(X) = pairwise(Euclidean(), X, dims = 1)
 
-dists!(D, X) = pairwise!(D, Euclidean(), X, dims = 1)
+distance_matrix!(D, X) = pairwise!(D, Euclidean(), X, dims = 1)
 
 """
     rotate(A)
@@ -62,29 +107,9 @@ function issymmetric(A::Matrix{Union{Missing,T}}) where {T}
     return true 
 end
 
-"""
-    initweights(Δ, W)
-
-If W is nothing, then return nxn matrix of ones with zeros on the diagonal. 
-Otherwise, normalize W so that 
-```math
-\\sum_{i<j} W[i,j] * Δ[i,j]^2 = \frac{n * (n-1)}{2}
-```
-"""
-function initweights(Δ, W)
-    n = size(Δ, 1)
-    if isnothing(W)
-        W = ones(n, n) - I
-    else
-        # normalize weights
-        C = sum(tril(W .* Δ.^2, -1)) * 2 / (n * (n - 1))
-        W = W / C
-    end
-    return W
-end
 
 function getV(W; inv = true)
-    V = - Matrix{Float64}(W)
+    V = - copy(W)
     V[diagind(V)] = - sum(V, dims = 1)
     inv && return Hermitian(pinv(V))
     Hermitian(V)

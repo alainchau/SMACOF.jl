@@ -26,11 +26,11 @@ function generate_gif(f, gifdir, filename; n=100, noise=nothing)
     X = rand(n, 2)
     X = X[.!((1 / 4 .< X[:,1] .< 3 / 4) .& (1 / 4 .< X[:,2] .< 3 / 4)), :]
     if !isnothing(noise)
-        Δ = add_noise_to_dist(dists(X), noise=noise)
+        Δ = add_noise_to_dist(distance_matrix(X), noise=noise)
     else
-        Δ = dists(X)
+        Δ = distance_matrix(X)
     end
-    # Y, Xhist = wda_smacof(dists(X), η=0.8, verbose=true, anchors=X, ε=1e-12, return_history=true)
+    # Y, Xhist = wda_smacof(distance_matrix(X), η=0.8, verbose=true, anchors=X, ε=1e-12, return_history=true)
     Xhist = f(X, Δ)
 
     # Make mp4 and then convert to gif
