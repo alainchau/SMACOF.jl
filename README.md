@@ -65,5 +65,5 @@ end
 ```
 
 <p align="center">
-<img src="https://github.com/alainchau/SMACOF.jl/blob/main/examples/speedtest/speedtest.png" width="600" height="400">
+<img src="https://github.com/alainchau/SMACOF.jl/blob/main/examples/speedtest/results.png" width="600" height="400">
 </p>
