@@ -1,24 +1,27 @@
 module SMACOF
 
-import Base:axes, getindex, setindex!, last, *, size
+using LinearAlgebra:Matrix
+using Reexport
+@reexport using DSTools
 using LinearAlgebra
-import LinearAlgebra:AbstractMatrix,diagind
 using Distances
+using Printf
+
+import Base:axes, getindex, setindex!, last, *, size
+import LinearAlgebra:AbstractMatrix,diagind
 import LinearAlgebra:issymmetric, mul!
 import Statistics: sum, mean
 
-include("bmat.jl")
 include("cmds.jl")
 include("helpers.jl")
 include("procrustes.jl")
 include("smacof.jl")
 include("wda_smacof.jl")
 
+export align, align!
 export classical_scaling
-export distance_matrix
-export mse
-export stress, stress1
-export smacof, SmacofParams
+export stress
+export smacof
 export wda_smacof
 
 end

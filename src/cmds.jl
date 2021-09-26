@@ -15,7 +15,7 @@ julia> X = rand(5, 2)
  0.070194  0.4018
  0.507032  0.0532854
 
-julia> Δ = SMACOF.distance_matrix(X)
+julia> Δ = SMACOF.dist(X)
 5×5 Matrix{Float64}:
  0.0       0.617757  0.328723  0.605899  0.318969
  0.617757  0.0       0.532114  0.259472  0.698035
@@ -31,7 +31,7 @@ julia> Y = classical_scaling(Δ)
  -0.303247   0.163206
   0.241481   0.28795
 
-julia> SMACOF.distance_matrix(Y)
+julia> SMACOF.dist(Y)
 5×5 Matrix{Float64}:
  0.0       0.617757  0.328723  0.605899  0.318969
  0.617757  0.0       0.532114  0.259472  0.698035
@@ -40,7 +40,7 @@ julia> SMACOF.distance_matrix(Y)
  0.318969  0.698035  0.625626  0.558829  0.0
 ```
 """
-function classical_scaling(Δ, p=2)
+function classical_scaling(Δ::AbstractMatrix{T}, p = 2) where T
     n = size(Δ, 1)
 
     # Compute A = - Δ^2 / 2
@@ -50,7 +50,7 @@ function classical_scaling(Δ, p=2)
     end
 
     # Doubly center A so that the row and col sums are zero
-    ravg = mean(A, dims=2)
+    ravg = mean(A, dims = 2)
     tavg = mean(ravg)
     for j in 1:n, i in j:n
         A.data[i, j] = A[i, j] - ravg[i] - ravg[j] + tavg
@@ -58,7 +58,7 @@ function classical_scaling(Δ, p=2)
 
     # compute low rank approximation
     Λ, V = eigen!(A, (n - p + 1):n)
-    reverse!(V, dims=2)
+    reverse!(V, dims = 2)
     reverse!(Λ)
 
     for j in 1:p, i in 1:n

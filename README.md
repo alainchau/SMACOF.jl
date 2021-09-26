@@ -18,7 +18,6 @@ using Plots
 using Random
 Random.seed!(2021)
 gr()
-ENV["GKSwstype"] = "100"
 
 relpath = "examples/tmp/"
 abspath = "/home/alain/code/SMACOF/examples/tmp/"
@@ -27,7 +26,7 @@ filename = "simple"
 
 X = rand(400, 2)
 X = X[.!((1 / 4 .< X[:,1] .< 3 / 4) .& (1 / 4 .< X[:,2] .< 3 / 4)), :]
-Xhist = wda_smacof(distance_matrix(X), η=0.8, verbose=true, anchors=X, ε=1e-6, return_history=true)[2]
+Xhist = wda_smacof(dist(X), η=0.8, verbose=true, anchors=X, ε=1e-6, return_history=true)[2]
 
 # Make mp4 and then convert to gif
 animation = Animation(abspath, String[])
